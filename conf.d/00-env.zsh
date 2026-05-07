@@ -12,6 +12,7 @@ fi
 export PATH="$HOME/.nodebrew/current/bin:$PATH"
 export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"            # Claude Code native binary
+export PATH="${ZSH_ENV_DIR:-$HOME/.zsh-env}/lib:$PATH"  # zsh-env の helper scripts (editor 等)
 
 # 各ツールのルート
 export NVM_DIR="$HOME/.nvm"
