@@ -1,13 +1,14 @@
 #
-# Function definitions only. No side effects on load.
-# Wiring (zle -N, bindkey, hooks) lives in 40-wiring.zsh.
+# 関数定義のみ。ロード時に副作用は出さない。
+# 配線 (zle -N、bindkey、hook など) は 40-wiring.zsh で行う。
 #
 
-# Ctrl-R: fuzzy history search with deletion support.
-# Inside fzf, Ctrl-D removes the highlighted entry from $HISTFILE on disk
-# and reloads the list. Note: zsh's in-memory history (used by up-arrow)
-# is NOT cleared in the current session — the deleted entry will reappear
-# until you start a new shell. `exec zsh` for a clean state.
+# Ctrl-R: fzf による履歴検索 + 削除機能つき。
+# fzf の TUI 上でエントリを選んで Ctrl-D を押すと、$HISTFILE 上のその
+# エントリを削除してリストも reload する。
+# 注意: zsh の in-memory history (上矢印で辿るやつ) は API の制約で
+# 一括 reload できないため、現セッション内では削除済みエントリも
+# 上矢印で見える。完全に消したい場合は `exec zsh` で新シェルへ。
 fzf-select-history() {
   local lib="${ZSH_ENV_DIR:-$HOME/.zsh-env}/lib"
   local selected
@@ -23,7 +24,7 @@ fzf-select-history() {
   zle reset-prompt
 }
 
-# Ctrl-Q: jump to a recent directory via cdr
+# Ctrl-Q: cdr 経由で最近の directory にジャンプする
 fzf-cdr() {
   local selected_dir=$(cdr -l | awk '{ print $2 }' | fzf --reverse)
   if [[ -n "$selected_dir" ]]; then
@@ -33,7 +34,7 @@ fzf-cdr() {
   zle clear-screen
 }
 
-# ssh wrapper: switch iTerm profile around the connection
+# ssh ラッパー: 接続前後で iTerm のプロファイルを切り替える
 ssh() {
   echo -e "\033]50;SetProfile=$1\a"
   command ssh "$@"
@@ -49,7 +50,8 @@ setup-node-with-nvm() {
   [[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"
   nvm use default >/dev/null 2>&1
 
-  # Mimic fnm's --use-on-cd: switch Node when entering a dir with .nvmrc
+  # fnm の --use-on-cd を擬似実装: .nvmrc のあるディレクトリに cd したら
+  # Node のバージョンを自動切替する
   autoload -U add-zsh-hook
   load-nvmrc() {
     local nvmrc_path="$(nvm_find_nvmrc)"

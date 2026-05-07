@@ -1,14 +1,14 @@
 #
-# Wiring: register widgets / hooks / inits that depend on functions above.
+# 配線: 上で定義した関数を使う widget 登録 / hook / init をここに集める。
 #
 
-# Custom widgets
+# カスタム widget
 zle -N fzf-select-history
 bindkey '^r' fzf-select-history
 zle -N fzf-cdr
 bindkey '^q' fzf-cdr
 
-# cdr: recent-directory tracking
+# cdr: 最近 cd した directory を記録
 if [[ -n $(echo ${^fpath}/chpwd_recent_dirs(N)) && -n $(echo ${^fpath}/cdr(N)) ]]; then
   autoload -Uz chpwd_recent_dirs cdr add-zsh-hook
   add-zsh-hook chpwd chpwd_recent_dirs
@@ -17,14 +17,14 @@ if [[ -n $(echo ${^fpath}/chpwd_recent_dirs(N)) && -n $(echo ${^fpath}/cdr(N)) ]
   zstyle ':chpwd:*' recent-dirs-max 1000
 fi
 
-# Node version manager: prefer fnm, fall back to nvm
+# Node version manager: fnm を優先、なければ nvm へ fallback
 if command -v fnm >/dev/null 2>&1; then
   setup-node-with-fnm
 elif [[ -s "$NVM_DIR/nvm.sh" ]]; then
   setup-node-with-nvm
 fi
 
-# ssh-agent
+# ssh-agent: 動いてなければ起動して、agent socket を環境変数に登録
 if ! pgrep -x "ssh-agent" >/dev/null; then
   eval "$(ssh-agent -s)"
 fi
@@ -36,7 +36,7 @@ if command -v pyenv >/dev/null 2>&1; then
   eval "$(pyenv virtualenv-init -)"
 fi
 
-# VSCode shell integration
+# VSCode シェル統合 (コマンドの実行履歴・現在ディレクトリを VSCode 側に通知)
 if [[ "${TERM_PROGRAM:-}" == "vscode" ]] && command -v code >/dev/null 2>&1; then
   VSCODE_ZSH_INTEGRATION="$(code --locate-shell-integration-path zsh 2>/dev/null || true)"
   if [[ -n "$VSCODE_ZSH_INTEGRATION" && -r "$VSCODE_ZSH_INTEGRATION" ]]; then
