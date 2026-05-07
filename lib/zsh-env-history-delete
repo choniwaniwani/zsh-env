@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#
+# zsh の HISTFILE から、引数で渡されたコマンド文字列と完全一致するエントリを削除する。
+# fzf-select-history の Ctrl-D バインドから呼ばれる。
+#
+
+set -uo pipefail
+entry="${1:-}"
+[[ -z $entry ]] && exit 0
+hist_file="${HISTFILE:-$HOME/.zsh_history}"
+[[ -f $hist_file ]] || exit 0
+
+tmp="$(mktemp)"
+awk -v target="$entry" '
+  /^: [0-9]+:[0-9]+;/ {
+    cmd = $0
+    sub(/^: [0-9]+:[0-9]+;/, "", cmd)
+    if (cmd == target) next
+  }
+  { print }
+' "$hist_file" > "$tmp"
+mv "$tmp" "$hist_file"

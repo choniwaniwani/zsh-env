@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#
+# zsh の HISTFILE をパースし、コマンド部分のみを最近の順に重複排除して出力する。
+# fzf-select-history のフィードに使う。
+#
+# HISTFILE エントリのフォーマット:
+#   : <epoch>:<duration>;<command>
+# (multiline コマンドは末尾 \ で継続。簡略のため先頭行のみ表示。)
+#
+
+set -uo pipefail
+hist_file="${HISTFILE:-$HOME/.zsh_history}"
+[[ -f $hist_file ]] || exit 0
+
+awk '/^: [0-9]+:[0-9]+;/{ sub(/^: [0-9]+:[0-9]+;/, ""); print }' "$hist_file" \
+  | tac \
+  | awk '!seen[$0]++'

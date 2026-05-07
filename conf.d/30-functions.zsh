@@ -3,11 +3,20 @@
 # Wiring (zle -N, bindkey, hooks) lives in 40-wiring.zsh.
 #
 
-# Ctrl-R: fuzzy history search (replaces fzf's default)
+# Ctrl-R: fuzzy history search with deletion support.
+# Inside fzf, Ctrl-D removes the highlighted entry from $HISTFILE on disk
+# and reloads the list. Note: zsh's in-memory history (used by up-arrow)
+# is NOT cleared in the current session — the deleted entry will reappear
+# until you start a new shell. `exec zsh` for a clean state.
 fzf-select-history() {
+  local lib="${ZSH_ENV_DIR:-$HOME/.zsh-env}/lib"
   local selected
-  selected=$(history -n -r 1 | fzf --height 40% --reverse --border \
-    --prompt='history> ' --query "${LBUFFER}")
+  selected=$("$lib/zsh-env-history-list" | fzf \
+    --height 40% --reverse --border \
+    --prompt='history> ' \
+    --query "${LBUFFER}" \
+    --header 'Ctrl-D: 履歴から削除  /  Enter: 選択  /  Esc: キャンセル' \
+    --bind "ctrl-d:execute-silent($lib/zsh-env-history-delete {})+reload($lib/zsh-env-history-list)")
   [[ -n $selected ]] || return
   BUFFER=$selected
   CURSOR=${#BUFFER}

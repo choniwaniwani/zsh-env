@@ -76,12 +76,15 @@ zsh-env/
 ├── zshrc                # ~/.zshrc 用。prezto + conf.d + .zshrc.local を順に load
 ├── zpreztorc            # ~/.zpreztorc 用。prezto モジュール構成
 ├── p10k.zsh             # ~/.p10k.zsh 用。powerlevel10k テーマ設定
-└── conf.d/              # zshrc から lexical 順に source される
-    ├── 00-env.zsh       # PATH, env vars, prompt
-    ├── 10-options.zsh   # setopt, fpath, compinit, fzf
-    ├── 20-aliases.zsh   # alias 群
-    ├── 30-functions.zsh # 関数定義（副作用なし）
-    └── 40-wiring.zsh    # zle/bindkey/hook/init（30 の関数を使う）
+├── conf.d/              # zshrc から lexical 順に source される
+│   ├── 00-env.zsh       # PATH, env vars, prompt
+│   ├── 10-options.zsh   # setopt, fpath, compinit, fzf
+│   ├── 20-aliases.zsh   # alias 群
+│   ├── 30-functions.zsh # 関数定義（副作用なし）
+│   └── 40-wiring.zsh    # zle/bindkey/hook/init（30 の関数を使う）
+└── lib/                 # 関数から呼ばれる外部実行スクリプト
+    ├── zsh-env-history-list    # HISTFILE をパースして dedupe 出力
+    └── zsh-env-history-delete  # HISTFILE から指定エントリを削除
 ```
 
 ## ロード順
