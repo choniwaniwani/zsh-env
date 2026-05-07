@@ -8,7 +8,7 @@ choniwaniwani 用の zsh 環境。
 
 | 層 | 場所 | 役割 | 更新方法 |
 |---|---|---|---|
-| Framework | `~/.zprezto` | sorin-ionescu/prezto をそのまま clone した zsh フレームワーク | `git pull` で追従 |
+| Framework | `~/.zprezto` | sorin-ionescu/prezto zsh フレームワーク | `git pull` で追従 |
 | Personal common | `~/.zsh-env` (このリポジトリ) | 自分のすべてのマシンで共有する設定 | このリポジトリに commit |
 | Per-machine | `~/.zshrc.local` / `~/.zshenv.local` | マシン固有の差分 | gitignore 済み、各マシンで手書き |
 
@@ -26,13 +26,13 @@ choniwaniwani 用の zsh 環境。
 | `zsh` | シェル本体 | `zsh --version` |
 | `git` | clone と更新 | `git --version` |
 | `curl` | 各種DL | `curl --version` |
+| `fzf` | Ctrl-R の履歴検索、Ctrl-Q の cdr ジャンプ、`fzfv` alias | `fzf --version` |
+| `bat` | `fzfv` のシンタックスハイライト付きプレビュー | `bat --version` |
+| Nerd Font (MesloLGS NF) | powerlevel10k のグリフ表示用 | bootstrap.sh が glyph を表示して目視確認を求める |
 
-### 推奨（無くても動くが一部機能が無効）
-
-| ツール | 何が使えなくなるか |
-|---|---|
-| `fzf` | Ctrl-R の履歴検索、Ctrl-Q の cdr ジャンプ、`fzfv` alias |
-| `bat` | `fzfv` のシンタックスハイライト付きプレビュー |
+> Nerd Font はターミナルアプリ側のフォント設定で決まるため、シェルからは判定不能。bootstrap.sh はサンプル glyph を画面に表示して「正しく表示されたか？」を対話的に問う。表示されない場合は、このマシンに font をインストールするオプション (macOS は `brew install --cask font-meslo-lg-nerd-font`、Linux は `~/.local/share/fonts/` への直接 DL) も提示するが、**ターミナルアプリの font 設定変更は別途手動で行う必要がある**。
+>
+> 非対話実行 (CI 等) では `ASSUME_NERD_FONT=1` を設定するとチェックをスキップできる。
 
 ### オプション（環境に応じて）
 
@@ -41,7 +41,6 @@ choniwaniwani 用の zsh 環境。
 | `fnm` | Node version manager（推奨。`.nvmrc` 自動切替が組み込み） |
 | `nvm` | fnm が無い場合の fallback |
 | `pyenv` | Python version manager |
-| Nerd Font | powerlevel10k のグリフ表示用。ターミナル側でフォント設定が必要 |
 
 ## インストール
 
@@ -53,10 +52,11 @@ exec zsh
 
 `bootstrap.sh` がやること:
 
-1. 前提条件をチェック（必須が無ければ OS 別のインストールコマンドを表示して終了）
-2. `sorin-ionescu/prezto` を `~/.zprezto` に `git clone --recursive`（存在しない場合のみ）
-3. 既存の dotfile があればタイムスタンプ付きで backup
-4. シンボリックリンクを張る:
+1. 必須ツール (zsh / git / curl / fzf / bat) をチェック。無ければ apt / dnf / pacman / brew で自動インストールを試みる。失敗した場合は終了する
+2. Nerd Font を **視覚テスト** で確認。glyph を画面表示して目視確認を求め、表示されなければインストールオプションを提示
+3. `sorin-ionescu/prezto` を `~/.zprezto` に `git clone --recursive`（存在しない場合のみ）
+4. 既存の dotfile があればタイムスタンプ付きで backup
+5. シンボリックリンクを張る:
    - `~/.zshenv`     → `~/.zsh-env/zshenv`
    - `~/.zshrc`      → `~/.zsh-env/zshrc`
    - `~/.zpreztorc`  → `~/.zsh-env/zpreztorc`
@@ -64,8 +64,6 @@ exec zsh
    - `~/.zprofile`   → `~/.zprezto/runcoms/zprofile`
    - `~/.zlogin`     → `~/.zprezto/runcoms/zlogin`
    - `~/.zlogout`    → `~/.zprezto/runcoms/zlogout`
-
-ソフトウェアの自動インストールはしない（OS 別の差を吸収しない方針）。
 
 ## ファイル構成
 
