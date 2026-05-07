@@ -82,7 +82,7 @@ visual_nerd_font_check() {
   # Nerd Font icons: GitHub / Ubuntu / Apple / JS / Snowflake / Folder
   printf '    Nerd Font:  %s\n' $'          '
   echo "  セパレータ (三角・半円) とアイコンが正しく表示されているはずです"
-  echo "  (豆腐 □ ではなく)。"
+  echo "  (豆腐 □, 空欄 ではなく)。"
   echo
 
   if [[ "${ASSUME_NERD_FONT:-0}" == "1" ]]; then
