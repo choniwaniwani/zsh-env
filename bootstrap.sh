@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 #
-# zsh-env bootstrap: install missing prerequisites and set up symlinks.
-# Required tools that are missing will be installed via the detected package
-# manager. If installation cannot proceed, the script exits with an error.
+# zsh-env bootstrap: 必須ツールのインストールと symlink 展開を行う。
+# 必須ツールが不足していれば自動インストールを試み、失敗時は exit する。
 #
 
 set -euo pipefail
+
+# Ensure ~/.local/bin is on PATH for symlinks we may create during install fixups.
+export PATH="$HOME/.local/bin:$PATH"
 
 # --- Resolve repo root ---
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,13 +25,20 @@ section() { echo; blue "── $* ──"; }
 
 OS_KIND="$(uname -s)"
 
+# --- Session detection ---
+# このスクリプトを実行している場所が「ターミナルアプリが動いているマシン」と
+# 同じか、それとも SSH 接続先のサーバ側か、を判別する。フォントの扱いが分岐する。
+is_ssh_session() {
+  [[ -n "${SSH_CLIENT:-}" ]] || [[ -n "${SSH_CONNECTION:-}" ]] || [[ -n "${SSH_TTY:-}" ]]
+}
+
 # --- Package install ---
 attempt_install_pkg() {
   local pkg="$1"
   case "$OS_KIND" in
     Darwin)
       command -v brew >/dev/null 2>&1 || {
-        echo "    Homebrew not found. Install from https://brew.sh first." >&2
+        echo "    Homebrew が見つかりません。https://brew.sh からインストールしてください。" >&2
         return 1
       }
       brew install "$pkg" ;;
@@ -41,40 +50,53 @@ attempt_install_pkg() {
       elif command -v pacman >/dev/null 2>&1; then
         sudo pacman -S --noconfirm "$pkg"
       else
-        echo "    No supported package manager (apt-get / dnf / pacman) found." >&2
+        echo "    対応するパッケージマネージャ (apt-get / dnf / pacman) が見つかりません。" >&2
         return 1
       fi ;;
     *)
-      echo "    Unsupported OS: $OS_KIND" >&2
+      echo "    未対応の OS: $OS_KIND" >&2
       return 1 ;;
   esac
 }
 
+# パッケージマネージャの命名差を吸収する。例えば Debian/Ubuntu では
+# 'bat' パッケージのバイナリは 'batcat' という名前になるので、~/.local/bin/bat
+# を symlink として作成して名前を揃える。
+fixup_after_install() {
+  local pkg="$1"
+  case "$pkg" in
+    bat)
+      if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
+        mkdir -p "$HOME/.local/bin"
+        ln -sf "$(command -v batcat)" "$HOME/.local/bin/bat"
+        hash -r 2>/dev/null || true
+      fi ;;
+  esac
+}
+
 # --- Nerd Font ---
-# Font rendering happens on the machine running the terminal application,
-# which may differ from where this script runs (e.g. SSH). The only reliable
-# check is visual: print glyphs and ask the user.
+# フォントレンダリングは「ターミナルアプリが動いているマシン」のフォント設定で
+# 決まるため、シェル側からは判定不能。サンプル glyph を表示して目視確認する。
 
 visual_nerd_font_check() {
   echo
-  echo "  Sample glyphs (Powerline + Nerd):"
-  printf "           \n"
-  echo "  These should render as solid arrows and recognizable icons,"
-  echo "  not as boxes or tofu (□)."
+  echo "  サンプル glyph (Powerline + Nerd):"
+  printf "           \n"
+  echo "  矢印とアイコンが正しく表示されているはずです (豆腐 □ ではなく)。"
   echo
 
   if [[ "${ASSUME_NERD_FONT:-0}" == "1" ]]; then
-    green "  ✓ assumed via ASSUME_NERD_FONT=1"
+    green "  ✓ ASSUME_NERD_FONT=1 によりスキップ"
     return 0
   fi
   if [[ ! -t 0 ]]; then
-    yellow "  ! non-interactive run — cannot ask visually."
-    yellow "    Set ASSUME_NERD_FONT=1 to skip this check."
+    yellow "  ! 非対話実行のため目視確認できません。"
+    yellow "    ASSUME_NERD_FONT=1 を設定するとスキップ可能です。"
     return 1
   fi
 
   local ans
-  read -r -p "  Do they render correctly? [y/N] " ans
+  read -r -p "  正しく表示されていますか？ [y/N] " ans
   [[ "$ans" =~ ^[Yy] ]]
 }
 
@@ -82,7 +104,7 @@ attempt_install_nerd_font() {
   case "$OS_KIND" in
     Darwin)
       command -v brew >/dev/null 2>&1 || {
-        echo "    Homebrew not found. Install from https://brew.sh first." >&2
+        echo "    Homebrew が見つかりません。https://brew.sh からインストールしてください。" >&2
         return 1
       }
       brew install --cask font-meslo-lg-nerd-font ;;
@@ -98,19 +120,19 @@ attempt_install_nerd_font() {
       )
       for f in "${files[@]}"; do
         local out="$font_dir/$(echo "$f" | sed 's/%20/ /g')"
-        echo "    Downloading $(basename "$out")..."
+        echo "    ダウンロード中: $(basename "$out")"
         curl -fsSL "$base/$f" -o "$out" || return 1
       done
       command -v fc-cache >/dev/null 2>&1 && fc-cache -f "$font_dir" >/dev/null 2>&1 || true
       ;;
     *)
-      echo "    Unsupported OS: $OS_KIND" >&2
+      echo "    未対応の OS: $OS_KIND" >&2
       return 1 ;;
   esac
 }
 
 # --- Prerequisite check ---
-section "Prerequisite check"
+section "前提条件チェック"
 
 REQUIRED=(zsh git curl fzf bat)
 unresolved_required=()
@@ -120,99 +142,127 @@ for cmd in "${REQUIRED[@]}"; do
     green "  ✓ $cmd"
     continue
   fi
-  yellow "  ○ $cmd missing — installing..."
-  if attempt_install_pkg "$cmd" && command -v "$cmd" >/dev/null 2>&1; then
-    green "  ✓ $cmd installed"
+  yellow "  ○ $cmd が見つかりません — インストール中..."
+  if attempt_install_pkg "$cmd"; then
+    fixup_after_install "$cmd"
+    if command -v "$cmd" >/dev/null 2>&1; then
+      green "  ✓ $cmd をインストールしました"
+    else
+      red   "  ✗ $cmd をインストールしましたが PATH に見つかりません"
+      unresolved_required+=("$cmd")
+    fi
   else
-    red   "  ✗ $cmd installation failed"
+    red   "  ✗ $cmd のインストールに失敗"
     unresolved_required+=("$cmd")
   fi
 done
 
-# Nerd Font (visual check — see comment block above visual_nerd_font_check)
-section "Nerd Font check"
+# --- Nerd Font check ---
+section "Nerd Font チェック"
 if visual_nerd_font_check; then
   green "  ✓ Nerd Font OK"
 else
   echo
-  yellow "  Nerd Font does not render. The font lives on the machine running"
-  yellow "  your terminal application — not necessarily where this script runs."
-  echo
-  if [[ -t 0 ]]; then
-    read -r -p "  Install MesloLGS NF on THIS machine now? [y/N] " ans
-    if [[ "$ans" =~ ^[Yy] ]]; then
-      if attempt_install_nerd_font; then
-        echo
-        green "  ✓ Font files installed."
-        echo "  Configure your terminal application to use 'MesloLGS NF',"
-        echo "  then re-run: $0"
-        exit 0
-      else
-        red "  ✗ Install failed."
+  if is_ssh_session; then
+    # SSH 接続先で実行中: フォントは接続元 (ローカル) にインストールが必要
+    yellow "  Nerd Font が表示されていません。"
+    echo
+    cat <<'EOF'
+  このセッションは SSH 経由なので、フォントは「接続元のマシン
+  (= 今あなたが操作中のマシン)」にインストールしてください。
+
+  接続元マシンで以下を実行:
+    macOS:   brew install --cask font-meslo-lg-nerd-font
+    Linux:   https://github.com/romkatv/powerlevel10k-media から
+             MesloLGS NF (Regular / Bold / Italic / Bold Italic の 4 ファイル) を
+             ~/.local/share/fonts/ に置き、fc-cache -f を実行
+
+  続いて、接続元のターミナルアプリの font 設定で 'MesloLGS NF' を選択し、
+  改めて SSH 接続してこのスクリプトを再実行してください。
+EOF
+    exit 1
+  else
+    # ローカルで実行中: このマシンに font を入れれば直る可能性が高い
+    yellow "  Nerd Font が表示されていません。"
+    yellow "  このマシンでターミナルアプリが動いているなら、フォントを入れて"
+    yellow "  ターミナル設定で選択することで解決します。"
+    echo
+    if [[ -t 0 ]]; then
+      read -r -p "  このマシンに MesloLGS NF をインストールしますか？ [y/N] " ans
+      if [[ "$ans" =~ ^[Yy] ]]; then
+        if attempt_install_nerd_font; then
+          echo
+          green "  ✓ フォントファイルをインストールしました。"
+          echo "  次にターミナルアプリの font 設定で 'MesloLGS NF' を選択し、"
+          echo "  このスクリプトを再実行してください: $0"
+          exit 0
+        else
+          red "  ✗ インストールに失敗しました。"
+        fi
       fi
     fi
-  fi
-  cat <<'EOF'
+    cat <<'EOF'
 
-  Manual setup:
+  手動セットアップ:
     macOS:   brew install --cask font-meslo-lg-nerd-font
-    Linux:   download MesloLGS NF (4 files: Regular / Bold / Italic / Bold Italic)
-             from https://github.com/romkatv/powerlevel10k-media
-             into ~/.local/share/fonts/  and run 'fc-cache -f'
-  Then set 'MesloLGS NF' as the font in your terminal application,
-  and re-run this script.
+    Linux:   https://github.com/romkatv/powerlevel10k-media から MesloLGS NF
+             (Regular / Bold / Italic / Bold Italic の 4 ファイル) を
+             ~/.local/share/fonts/ に置き、fc-cache -f を実行
+  そのうえでターミナルアプリの font 設定で 'MesloLGS NF' を選択し、
+  このスクリプトを再実行してください。
 EOF
-  exit 1
+    exit 1
+  fi
 fi
 
-# Optional tools: report only
+# --- Optional tools (report only) ---
 echo
 for cmd in fnm nvm pyenv; do
   if command -v "$cmd" >/dev/null 2>&1; then
-    green "  ✓ $cmd (optional)"
+    green "  ✓ $cmd (オプション)"
   fi
 done
 if ! command -v fnm >/dev/null 2>&1 && ! command -v nvm >/dev/null 2>&1; then
-  yellow "  ○ fnm or nvm  (optional, Node version manager)"
+  yellow "  ○ fnm または nvm  (オプション、Node version manager)"
 fi
 if ! command -v pyenv >/dev/null 2>&1; then
-  yellow "  ○ pyenv  (optional, Python version manager)"
+  yellow "  ○ pyenv  (オプション、Python version manager)"
 fi
 
 if (( ${#unresolved_required[@]} > 0 )); then
   echo
-  red "Cannot proceed — the following required prerequisites could not be installed:"
+  red "続行できません — 以下の必須ツールをインストールできませんでした:"
   for item in "${unresolved_required[@]}"; do
     red "  - $item"
   done
-  echo "Install them manually and re-run this script."
+  echo "手動でインストールしてからこのスクリプトを再実行してください。"
   exit 1
 fi
 
 # --- prezto framework ---
-section "prezto framework (~/.zprezto)"
+section "prezto フレームワーク (~/.zprezto)"
 
 if [[ -d "$PREZTO_DIR/.git" ]]; then
   prezto_origin="$(git -C "$PREZTO_DIR" config --get remote.origin.url 2>/dev/null || echo unknown)"
   if [[ "$prezto_origin" == *"sorin-ionescu/prezto"* ]]; then
-    green "  ✓ already cloned ($prezto_origin)"
+    green "  ✓ 既に clone 済み ($prezto_origin)"
   else
-    yellow "  ! origin is not sorin-ionescu/prezto: $prezto_origin"
-    yellow "    Backing up the existing directory and cloning the expected repo."
+    yellow "  ! origin が sorin-ionescu/prezto ではありません: $prezto_origin"
+    yellow "    既存ディレクトリを backup してから期待される repo を clone します。"
     backup="${PREZTO_DIR}.backup-${TIMESTAMP}"
-    echo "  Renaming $PREZTO_DIR → $backup"
+    echo "  リネーム: $PREZTO_DIR → $backup"
     mv "$PREZTO_DIR" "$backup"
-    echo "  Cloning $PREZTO_REPO ..."
+    echo "  $PREZTO_REPO を clone 中..."
     git clone --recursive "$PREZTO_REPO" "$PREZTO_DIR"
-    green "  ✓ prezto cloned"
+    green "  ✓ prezto を clone しました"
   fi
 elif [[ -e "$PREZTO_DIR" ]]; then
-  red "  ✗ $PREZTO_DIR exists but is not a git repo. Aborting."
+  red "  ✗ $PREZTO_DIR は存在しますが git repo ではありません。中止します。"
   exit 1
 else
-  echo "  Cloning $PREZTO_REPO ..."
+  echo "  $PREZTO_REPO を clone 中..."
   git clone --recursive "$PREZTO_REPO" "$PREZTO_DIR"
-  green "  ✓ prezto cloned"
+  green "  ✓ prezto を clone しました"
 fi
 
 # --- Symlink helpers ---
@@ -222,42 +272,42 @@ backup_and_link() {
   if [[ -L "$link" ]]; then
     local current; current="$(readlink "$link")"
     if [[ "$current" == "$target" ]]; then
-      green "  ✓ $link → $target  (already linked)"
+      green "  ✓ $link → $target  (既にリンク済み)"
       return
     fi
-    yellow "  ! $link is a symlink to $current — replacing"
+    yellow "  ! $link は $current への symlink — 張り替えます"
     rm "$link"
   elif [[ -e "$link" ]]; then
     local backup="${link}.backup-${TIMESTAMP}"
-    yellow "  ! $link exists — backing up to $backup"
+    yellow "  ! $link が既に存在 — $backup へ退避"
     mv "$link" "$backup"
   fi
   ln -s "$target" "$link"
   green "  ✓ $link → $target"
 }
 
-section "Symlinks managed by zsh-env"
+section "zsh-env が管理する symlink"
 backup_and_link "$REPO_ROOT/zshenv"    "$HOME/.zshenv"
 backup_and_link "$REPO_ROOT/zshrc"     "$HOME/.zshrc"
 backup_and_link "$REPO_ROOT/zpreztorc" "$HOME/.zpreztorc"
 backup_and_link "$REPO_ROOT/p10k.zsh"  "$HOME/.p10k.zsh"
 
-section "Symlinks to prezto runcoms"
+section "prezto runcoms への symlink"
 backup_and_link "$PREZTO_DIR/runcoms/zprofile" "$HOME/.zprofile"
 backup_and_link "$PREZTO_DIR/runcoms/zlogin"   "$HOME/.zlogin"
 backup_and_link "$PREZTO_DIR/runcoms/zlogout"  "$HOME/.zlogout"
 
-section "Done"
-green "Setup complete."
+section "完了"
+green "セットアップが完了しました。"
 echo
-echo "Next steps:"
-echo "  1. Open a new shell:           exec zsh"
-echo "  2. Configure your terminal app to use 'MesloLGS NF' as its font"
-echo "  3. (Optional) per-machine env: edit ~/.zshenv.local"
-echo "  4. (Optional) per-machine rc:  edit ~/.zshrc.local"
-echo "  5. (Optional) re-tune prompt:  p10k configure"
+echo "次のステップ:"
+echo "  1. 新しいシェルを起動:                    exec zsh"
+echo "  2. ターミナルアプリの font 設定で 'MesloLGS NF' を選択"
+echo "  3. (オプション) マシン固有 env:           edit ~/.zshenv.local"
+echo "  4. (オプション) マシン固有 zshrc:         edit ~/.zshrc.local"
+echo "  5. (オプション) prompt の再調整:          p10k configure"
 echo
-echo "Layers:"
-echo "  framework  : ~/.zprezto                          (don't edit)"
-echo "  common     : ~/.zsh-env                          (this repo)"
-echo "  per-machine: ~/.zshrc.local, ~/.zshenv.local     (gitignored)"
+echo "レイヤ構造:"
+echo "  framework   : ~/.zprezto                          (編集しない)"
+echo "  common      : ~/.zsh-env                          (このリポジトリ)"
+echo "  per-machine : ~/.zshrc.local, ~/.zshenv.local     (gitignore 済み)"
