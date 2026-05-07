@@ -1,0 +1,14 @@
+# Local override files (never commit machine-specific config)
+*.local
+zshrc.local
+zshenv.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# History fragments accidentally landed here
+.zsh_history
