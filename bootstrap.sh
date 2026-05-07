@@ -76,8 +76,11 @@ verify_installed() {
 
 visual_nerd_font_check() {
   echo
-  echo "  サンプル glyph (Powerline + Nerd):"
-  printf "           \n"
+  echo "  サンプル glyph:"
+  # Powerline arrows: U+E0B0/E0B2/E0B4/E0B6
+  printf '    Powerline:  %s\n' $'      '
+  # Nerd Font icons: GitHub / Ubuntu / Apple / JS / Snowflake / Folder
+  printf '    Nerd Font:  %s\n' $'          '
   echo "  矢印とアイコンが正しく表示されているはずです (豆腐 □ ではなく)。"
   echo
 
