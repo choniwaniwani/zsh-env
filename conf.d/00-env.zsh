@@ -31,6 +31,12 @@ if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
   hash -r 2>/dev/null
 fi
 
+# EDITOR / VISUAL: VSCode wrapper (lib/editor) を標準エディタにする。
+# git commit / git rebase -i / crontab -e / Ctrl+x Ctrl+e から呼ばれた時に
+# 起動中の VSCode で開く。VSCode が無ければ nano 等へ fallback する。
+export EDITOR="${ZSH_ENV_DIR:-$HOME/.zsh-env}/lib/editor"
+export VISUAL="$EDITOR"
+
 # プロンプト: ~/.p10k.zsh を再生成したいときは `p10k configure`
 if [[ "$TERM" == "linux" ]]; then
   PROMPT='%F{green}%n@%m%f %F{blue}%~%f %# '

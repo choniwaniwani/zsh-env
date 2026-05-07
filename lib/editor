@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#
+# zsh-env editor wrapper:
+# 外部ターミナル (iTerm2, Alacritty, WezTerm 等) からも VSCode を呼べるように
+# する。VSCode の統合ターミナルは VSCODE_IPC_HOOK_CLI を自動設定するが、
+# 外部ターミナルには引き継がれないので、起動済み VSCode の IPC socket を
+# 実行のたびに探索して接続する。
+#
+# 動作:
+#   1. 起動中 VSCode の IPC socket を OS 別に複数候補から探索
+#   2. Remote CLI (~/.vscode-server/.../code) または local 'code' を選択
+#   3. VSCode が利用可能なら --wait で開いて、エディタを閉じるまで block
+#   4. VSCode が無ければ fallback ($FALLBACK_EDITOR or nano)
+#
+# git commit / git rebase -i / crontab -e / Ctrl+x Ctrl+e で使われる。
+# 参考: https://archelon-inc.jp/blog/vscode-remote-editor-wrapper
+#
+
+set -uo pipefail
+
+# 起動中 VSCode の IPC socket を探す。検索順は近年の VSCode の出力先優先。
+find_vscode_socket() {
+  local dirs=()
+  [[ -n "${XDG_RUNTIME_DIR:-}" ]] && dirs+=("$XDG_RUNTIME_DIR")
+  [[ -n "${TMPDIR:-}" ]] && dirs+=("$TMPDIR")
+  dirs+=("/run/user/$(id -u)" "/tmp")
+
+  local dir socket
+  for dir in "${dirs[@]}"; do
+    [[ -d "$dir" ]] || continue
+    socket=$(ls -t "$dir"/vscode-ipc-*.sock 2>/dev/null | head -1)
+    if [[ -n "$socket" && -S "$socket" ]]; then
+      echo "$socket"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# VSCode CLI の実行ファイルを探す。Remote SSH 接続先側か、ローカル PATH 上の 'code'。
+find_vscode_cli() {
+  local remote_cli
+  remote_cli=$(ls -td "$HOME/.vscode-server/cli/servers/"*/server/bin/remote-cli/code 2>/dev/null | head -1)
+  if [[ -n "$remote_cli" && -x "$remote_cli" ]]; then
+    echo "$remote_cli"
+    return 0
+  fi
+  command -v code 2>/dev/null
+}
+
+VSCODE_IPC_HOOK_CLI=$(find_vscode_socket || true)
+export VSCODE_IPC_HOOK_CLI
+vscode_cli=$(find_vscode_cli || true)
+
+if [[ -S "${VSCODE_IPC_HOOK_CLI:-}" && -n "$vscode_cli" ]]; then
+  if [[ $# -eq 0 ]]; then
+    echo "VSCode 利用時はファイルを指定してください: editor <ファイル名>" >&2
+    exit 1
+  fi
+  echo "Opening in VS Code..." >&2
+  "$vscode_cli" --wait "$@" >/dev/null 2>&1
+  exit $?
+fi
+
+# Fallback: $FALLBACK_EDITOR (override hook) → nano → vim → vi
+fallback="${FALLBACK_EDITOR:-}"
+if [[ -z "$fallback" ]]; then
+  for cand in nano vim vi; do
+    if command -v "$cand" >/dev/null 2>&1; then
+      fallback="$cand"
+      break
+    fi
+  done
+fi
+if [[ -z "$fallback" ]]; then
+  echo "エディタが見つかりません (VSCode / nano / vim / vi いずれも不在)" >&2
+  exit 1
+fi
+exec "$fallback" "$@"

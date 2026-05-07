@@ -83,9 +83,25 @@ zsh-env/
 │   ├── 30-functions.zsh # 関数定義（副作用なし）
 │   └── 40-wiring.zsh    # zle/bindkey/hook/init（30 の関数を使う）
 └── lib/                 # 関数から呼ばれる外部実行スクリプト
+    ├── editor                  # $EDITOR / $VISUAL から呼ばれる VSCode wrapper
     ├── zsh-env-history-list    # HISTFILE をパースして dedupe 出力
     └── zsh-env-history-delete  # HISTFILE から指定エントリを削除
 ```
+
+## 標準エディタ ($EDITOR) の挙動
+
+`conf.d/00-env.zsh` で `EDITOR` と `VISUAL` を `lib/editor` に設定済み。これにより `git commit` / `git rebase -i` / `crontab -e` / `Ctrl+x Ctrl+e` などから呼ばれるエディタが以下のように振る舞う:
+
+| 状態 | `editor file` | `editor`（引数なし） |
+|---|---|---|
+| VSCode 起動中 (Remote SSH 接続中含む) | VSCode で開いて閉じるまで block | ガイドメッセージを出して exit |
+| VSCode 未起動 | nano (なければ vim → vi) で開く | 同左 |
+
+VSCode 起動中かどうかは IPC socket の有無で判定する。`/tmp/`、`/run/user/$UID/`、`$XDG_RUNTIME_DIR`、`$TMPDIR` を順に探索するので Linux/macOS 両対応。
+
+fallback editor を変えたい場合は `~/.zshrc.local` 等で `export FALLBACK_EDITOR=vim` のように上書き可能。
+
+参考: https://archelon-inc.jp/blog/vscode-remote-editor-wrapper
 
 ## ロード順
 
