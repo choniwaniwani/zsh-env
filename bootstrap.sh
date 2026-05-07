@@ -104,16 +104,16 @@ section "Upstream prezto (~/.zprezto)"
 if [[ -d "$PREZTO_DIR/.git" ]]; then
   prezto_origin="$(git -C "$PREZTO_DIR" config --get remote.origin.url 2>/dev/null || echo unknown)"
   if [[ "$prezto_origin" == *"sorin-ionescu/prezto"* ]]; then
-    green "  ✓ already cloned from upstream ($prezto_origin)"
+    green "  ✓ already cloned ($prezto_origin)"
   else
-    yellow "  ! exists but origin is: $prezto_origin"
-    yellow "    (this looks like a fork; consider backing up and re-cloning upstream)"
+    yellow "  ! origin is not sorin-ionescu/prezto: $prezto_origin"
+    yellow "    Backing up the existing directory and cloning the expected repo."
     backup="${PREZTO_DIR}.backup-${TIMESTAMP}"
     echo "  Renaming $PREZTO_DIR → $backup"
     mv "$PREZTO_DIR" "$backup"
     echo "  Cloning $PREZTO_REPO ..."
     git clone --recursive "$PREZTO_REPO" "$PREZTO_DIR"
-    green "  ✓ upstream prezto cloned"
+    green "  ✓ prezto cloned"
   fi
 elif [[ -e "$PREZTO_DIR" ]]; then
   red "  ✗ $PREZTO_DIR exists but is not a git repo. Aborting."
@@ -121,7 +121,7 @@ elif [[ -e "$PREZTO_DIR" ]]; then
 else
   echo "  Cloning $PREZTO_REPO ..."
   git clone --recursive "$PREZTO_REPO" "$PREZTO_DIR"
-  green "  ✓ upstream prezto cloned"
+  green "  ✓ prezto cloned"
 fi
 
 # --- Symlink helpers ---
@@ -152,8 +152,8 @@ backup_and_link "$REPO_ROOT/zshrc"     "$HOME/.zshrc"
 backup_and_link "$REPO_ROOT/zpreztorc" "$HOME/.zpreztorc"
 backup_and_link "$REPO_ROOT/p10k.zsh"  "$HOME/.p10k.zsh"
 
-# --- Upstream-prezto runcoms (zprofile/zlogin/zlogout are templates) ---
-section "Symlinks to upstream prezto runcoms"
+# --- prezto runcoms (zprofile/zlogin/zlogout are templates) ---
+section "Symlinks to prezto runcoms"
 backup_and_link "$PREZTO_DIR/runcoms/zprofile" "$HOME/.zprofile"
 backup_and_link "$PREZTO_DIR/runcoms/zlogin"   "$HOME/.zlogin"
 backup_and_link "$PREZTO_DIR/runcoms/zlogout"  "$HOME/.zlogout"
@@ -168,7 +168,7 @@ echo "  2. (Optional) per-machine env: edit ~/.zshenv.local"
 echo "  3. (Optional) per-machine rc:  edit ~/.zshrc.local"
 echo "  4. (Optional) re-tune prompt:  p10k configure"
 echo
-echo "Layer recap:"
-echo "  upstream  : ~/.zprezto             (don't edit)"
-echo "  common    : ~/.zsh-env             (this repo)"
-echo "  per-machine: ~/.zshrc.local, ~/.zshenv.local  (gitignored)"
+echo "Layers:"
+echo "  framework  : ~/.zprezto                          (don't edit)"
+echo "  common     : ~/.zsh-env                          (this repo)"
+echo "  per-machine: ~/.zshrc.local, ~/.zshenv.local     (gitignored)"
