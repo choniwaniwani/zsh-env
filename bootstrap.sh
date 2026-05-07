@@ -59,18 +59,14 @@ attempt_install_pkg() {
   esac
 }
 
-# パッケージマネージャの命名差を吸収する。例えば Debian/Ubuntu では
-# 'bat' パッケージのバイナリは 'batcat' という名前になるので、~/.local/bin/bat
-# を symlink として作成して名前を揃える。
-fixup_after_install() {
-  local pkg="$1"
-  case "$pkg" in
-    bat)
-      if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
-        mkdir -p "$HOME/.local/bin"
-        ln -sf "$(command -v batcat)" "$HOME/.local/bin/bat"
-        hash -r 2>/dev/null || true
-      fi ;;
+# 一部のディストリではパッケージ名と実バイナリ名が違う。例えば Debian/Ubuntu
+# では 'bat' パッケージは 'batcat' バイナリをインストールする。導入されている
+# かのチェックでは別名も許容する。命名を統一するシム作成は conf.d 側で実施。
+verify_installed() {
+  local cmd="$1"
+  case "$cmd" in
+    bat) command -v bat >/dev/null 2>&1 || command -v batcat >/dev/null 2>&1 ;;
+    *)   command -v "$cmd" >/dev/null 2>&1 ;;
   esac
 }
 
@@ -138,19 +134,13 @@ REQUIRED=(zsh git curl fzf bat)
 unresolved_required=()
 
 for cmd in "${REQUIRED[@]}"; do
-  if command -v "$cmd" >/dev/null 2>&1; then
+  if verify_installed "$cmd"; then
     green "  ✓ $cmd"
     continue
   fi
   yellow "  ○ $cmd が見つかりません — インストール中..."
-  if attempt_install_pkg "$cmd"; then
-    fixup_after_install "$cmd"
-    if command -v "$cmd" >/dev/null 2>&1; then
-      green "  ✓ $cmd をインストールしました"
-    else
-      red   "  ✗ $cmd をインストールしましたが PATH に見つかりません"
-      unresolved_required+=("$cmd")
-    fi
+  if attempt_install_pkg "$cmd" && verify_installed "$cmd"; then
+    green "  ✓ $cmd をインストールしました"
   else
     red   "  ✗ $cmd のインストールに失敗"
     unresolved_required+=("$cmd")
