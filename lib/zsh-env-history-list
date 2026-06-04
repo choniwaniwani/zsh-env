@@ -56,7 +56,8 @@ binmode(STDOUT);
 my %seen;
 for my $e (reverse @entries) {          # ファイル末尾 (最近) を先頭に
   my ($lineno, $cmd) = @$e;
-  next if $seen{$cmd}++;                # 実行上同一なら 1 つだけ表示
   (my $disp = unmeta($cmd)) =~ s/[\t\n]+/ /g;  # 列区切りの TAB と改行を空白へ
+  $disp =~ s/\s+$//;                    # 末尾空白を落とす (表示にも dedup にも効かせる)
+  next if $seen{$disp}++;               # 表示・実行される文字列が同一なら 1 つだけ
   print "$lineno\t$disp\n";
 }
