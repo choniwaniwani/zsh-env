@@ -21,9 +21,12 @@ fzf-select-history() {
     --query "${LBUFFER}" \
     --header 'Ctrl-D: 履歴から削除  /  Enter: 選択  /  Esc: キャンセル' \
     --bind "ctrl-d:execute-silent($lib/zsh-env-history-delete {1})+reload($lib/zsh-env-history-list)")
-  [[ -n $selected ]] || return
-  BUFFER=${selected#*$'\t'}   # 番号列を落としてコマンド部分だけ採用
-  CURSOR=${#BUFFER}
+  # 選択時のみ BUFFER を差し替える。キャンセル (Esc) でも reset-prompt は
+  # 必ず通す — 通さないと fzf 描画後にプロンプトが再描画されず記号が消える。
+  if [[ -n $selected ]]; then
+    BUFFER=${selected#*$'\t'}   # 番号列を落としてコマンド部分だけ採用
+    CURSOR=${#BUFFER}
+  fi
   zle reset-prompt
 }
 
