@@ -1,22 +1,35 @@
-#!/usr/bin/env bash
+#!/usr/bin/env perl
 #
-# zsh の HISTFILE から、引数で渡されたコマンド文字列と完全一致するエントリを削除する。
-# fzf-select-history の Ctrl-D バインドから呼ばれる。
+# zsh の HISTFILE から、指定された「エントリ開始の物理行番号」のエントリを
+# 行末 \ の継続行ごとまるごと削除する。
+# zsh-env-history-list が出力する行番号を、fzf の Ctrl-D バインドから受け取る。
 #
+# 行番号で消すので、Meta エンコードされた日本語や複数行コマンドでも
+# 文字列一致に失敗せず確実に削除できる。
+#
+use strict;
+use warnings;
 
-set -uo pipefail
-entry="${1:-}"
-[[ -z $entry ]] && exit 0
-hist_file="${HISTFILE:-$HOME/.zsh_history}"
-[[ -f $hist_file ]] || exit 0
+my $target = shift;
+exit 0 unless defined $target && $target =~ /^\d+$/;
 
-tmp="$(mktemp)"
-awk -v target="$entry" '
-  /^: [0-9]+:[0-9]+;/ {
-    cmd = $0
-    sub(/^: [0-9]+:[0-9]+;/, "", cmd)
-    if (cmd == target) next
-  }
-  { print }
-' "$hist_file" > "$tmp"
-mv "$tmp" "$hist_file"
+my $hf = $ENV{HISTFILE} || "$ENV{HOME}/.zsh_history";
+open(my $fh, '<:raw', $hf) or exit 0;
+my @lines = <$fh>;
+close($fh);
+
+my $start = $target - 1;                            # 0 始まり
+exit 0 if $start < 0 || $start > $#lines;
+exit 0 unless $lines[$start] =~ /^: \d+:\d+;/;      # 開始行でなければ安全のため何もしない
+
+# 次のタイムスタンプ行の手前まで (= 継続行) を範囲に含める
+my $end = $start;
+$end++ while ($end < $#lines && $lines[$end + 1] !~ /^: \d+:\d+;/);
+
+splice(@lines, $start, $end - $start + 1);
+
+my $tmp = "$hf.tmp.$$";
+open(my $out, '>:raw', $tmp) or exit 0;
+print $out @lines;
+close($out)        or do { unlink $tmp; exit 1 };
+rename($tmp, $hf)  or do { unlink $tmp; exit 1 };

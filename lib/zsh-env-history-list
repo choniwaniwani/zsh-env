@@ -1,17 +1,62 @@
-#!/usr/bin/env bash
+#!/usr/bin/env perl
 #
-# zsh の HISTFILE をパースし、コマンド部分のみを最近の順に重複排除して出力する。
-# fzf-select-history のフィードに使う。
+# zsh の HISTFILE をパースし、各エントリを最近の順・重複排除して
+#   <エントリ開始の物理行番号><TAB><デコード済み 1 行表示>
+# の形式で出力する。fzf-select-history のフィードに使う。
 #
-# HISTFILE エントリのフォーマット:
-#   : <epoch>:<duration>;<command>
-# (multiline コマンドは末尾 \ で継続。簡略のため先頭行のみ表示。)
+# 行番号を持たせるのが肝。削除側 (zsh-env-history-delete) はこの番号で
+# 物理行を狙うので、文字列の完全一致に頼らない。これにより
+#   - 日本語など (zsh の Meta エンコーディングで HISTFILE 上は化けている)
+#   - 行末 \ で複数行に継続するコマンド
+# でも確実に消せる。表示側もここで Meta を戻すので fzf 上は正しく見える。
 #
+# HISTFILE エントリのフォーマット: : <epoch>:<duration>;<command>
+#
+use strict;
+use warnings;
 
-set -uo pipefail
-hist_file="${HISTFILE:-$HOME/.zsh_history}"
-[[ -f $hist_file ]] || exit 0
+my $hf = $ENV{HISTFILE} || "$ENV{HOME}/.zsh_history";
+open(my $fh, '<:raw', $hf) or exit 0;
+my @lines = <$fh>;
+close($fh);
+exit 0 unless @lines;
 
-awk '/^: [0-9]+:[0-9]+;/{ sub(/^: [0-9]+:[0-9]+;/, ""); print }' "$hist_file" \
-  | tac \
-  | awk '!seen[$0]++'
+# zsh の Meta エンコーディングを戻す: バイト 0x83 (Meta) に続く 1 バイトを
+# ^0x20 して 0x83 を取り除くと、元の UTF-8 バイト列に戻る。
+sub unmeta {
+  my @b = unpack('C*', shift);
+  my $out = '';
+  for (my $i = 0; $i <= $#b; $i++) {
+    if ($b[$i] == 0x83 && $i < $#b) {
+      $out .= chr($b[++$i] ^ 0x20);
+    } else {
+      $out .= chr($b[$i]);
+    }
+  }
+  return $out;
+}
+
+my @entries;  # [物理行番号(1始まり), 生コマンド]
+for (my $i = 0; $i <= $#lines; $i++) {
+  next unless $lines[$i] =~ /^: \d+:\d+;(.*)\n?$/;
+  my $lineno = $i + 1;
+  my $cmd = $1;
+  # 行末 \ で続く継続行を取り込む。ただし次行が新しいタイムスタンプ行なら、
+  # その \ は継続ではなくコマンド本体の末尾文字なので結合しない。
+  while ($cmd =~ /\\$/ && $i < $#lines && $lines[$i + 1] !~ /^: \d+:\d+;/) {
+    $i++;
+    (my $cont = $lines[$i]) =~ s/\n$//;
+    $cmd =~ s/\\$//;
+    $cmd .= "\n$cont";
+  }
+  push @entries, [$lineno, $cmd];
+}
+
+binmode(STDOUT);
+my %seen;
+for my $e (reverse @entries) {          # ファイル末尾 (最近) を先頭に
+  my ($lineno, $cmd) = @$e;
+  next if $seen{$cmd}++;                # 実行上同一なら 1 つだけ表示
+  (my $disp = unmeta($cmd)) =~ s/[\t\n]+/ /g;  # 列区切りの TAB と改行を空白へ
+  print "$lineno\t$disp\n";
+}

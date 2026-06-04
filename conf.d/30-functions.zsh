@@ -12,14 +12,17 @@
 fzf-select-history() {
   local lib="${ZSH_ENV_DIR:-$HOME/.zsh-env}/lib"
   local selected
+  # list は "<物理行番号>\t<表示>" を出す。番号列 (1列目) は検索・表示から
+  # 隠し、Ctrl-D には {1} (番号) を渡して確実に削除する。
   selected=$("$lib/zsh-env-history-list" | fzf \
     --height 40% --reverse --border \
+    --delimiter='\t' --nth='2..' --with-nth='2..' \
     --prompt='history> ' \
     --query "${LBUFFER}" \
     --header 'Ctrl-D: 履歴から削除  /  Enter: 選択  /  Esc: キャンセル' \
-    --bind "ctrl-d:execute-silent($lib/zsh-env-history-delete {})+reload($lib/zsh-env-history-list)")
+    --bind "ctrl-d:execute-silent($lib/zsh-env-history-delete {1})+reload($lib/zsh-env-history-list)")
   [[ -n $selected ]] || return
-  BUFFER=$selected
+  BUFFER=${selected#*$'\t'}   # 番号列を落としてコマンド部分だけ採用
   CURSOR=${#BUFFER}
   zle reset-prompt
 }
