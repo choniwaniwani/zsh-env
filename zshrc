@@ -22,3 +22,9 @@ unset _zshenv_conf
 
 # 3. Per-machine override.
 [[ -r "${HOME}/.zshrc.local" ]] && source "${HOME}/.zshrc.local"
+
+## [Completion]
+## Completion scripts setup. Remove the following line to uninstall
+[[ -f /home/dev/.dart-cli-completion/zsh-config.zsh ]] && . /home/dev/.dart-cli-completion/zsh-config.zsh || true
+## [/Completion]
+
