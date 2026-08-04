@@ -28,7 +28,10 @@ fi
 if ! pgrep -x "ssh-agent" >/dev/null; then
   eval "$(ssh-agent -s)"
 fi
-export SSH_AUTH_SOCK=$(find /tmp/ -type s -name 'agent.*' 2>/dev/null | head -n 1)
+if [[ ! -S ${SSH_AUTH_SOCK:-} ]]; then
+  # socket は必ず ${TMPDIR}/ssh-XXXXXX/agent.<pid> の深さ 2 にある
+  export SSH_AUTH_SOCK=$(find "${TMPDIR:-/tmp}" -maxdepth 2 -type s -name 'agent.*' -print -quit 2>/dev/null)
+fi
 
 # Pyenv
 if command -v pyenv >/dev/null 2>&1; then
