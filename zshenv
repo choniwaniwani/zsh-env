@@ -10,11 +10,14 @@
 [[ -r "${HOME}/.zshenv.local" ]] && source "${HOME}/.zshenv.local"
 
 # pnpm (zshrc は対話 shell 専用で non-interactive な zsh -c 呼び出しに効かないため、
-# 全 shell が通るここに置く。PNPM_HOME 未設置の環境では export するだけで無害)
-if [[ -d "$HOME/.local/share/pnpm" ]]; then
-  export PNPM_HOME="$HOME/.local/share/pnpm"
+# 全 shell が通るここに置く。global install の shim は $PNPM_HOME/bin に置かれる)
+for _pnpm_home in "$HOME/Library/pnpm" "$HOME/.local/share/pnpm"; do
+  [[ -d "$_pnpm_home" ]] || continue
+  export PNPM_HOME="$_pnpm_home"
   case ":$PATH:" in
     *":$PNPM_HOME/bin:"*) ;;
     *) export PATH="$PNPM_HOME/bin:$PATH" ;;
   esac
-fi
+  break
+done
+unset _pnpm_home
