@@ -24,15 +24,6 @@ elif [[ -s "$NVM_DIR/nvm.sh" ]]; then
   setup-node-with-nvm
 fi
 
-# ssh-agent: 動いてなければ起動して、agent socket を環境変数に登録
-if ! pgrep -x "ssh-agent" >/dev/null; then
-  eval "$(ssh-agent -s)"
-fi
-if [[ ! -S ${SSH_AUTH_SOCK:-} ]]; then
-  # socket は必ず ${TMPDIR}/ssh-XXXXXX/agent.<pid> の深さ 2 にある
-  export SSH_AUTH_SOCK=$(find "${TMPDIR:-/tmp}" -maxdepth 2 -type s -name 'agent.*' -print -quit 2>/dev/null)
-fi
-
 # Pyenv
 if command -v pyenv >/dev/null 2>&1; then
   eval "$(pyenv init -)"
