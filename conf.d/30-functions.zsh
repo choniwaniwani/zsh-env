@@ -74,3 +74,34 @@ setup-node-with-nvm() {
   add-zsh-hook chpwd load-nvmrc
   load-nvmrc
 }
+
+# macOS のみ: claude / codex を必ず tmux 内で起動する。
+# handoff (/clear → 復帰) は pane をプロセスごと張り替える respawn 方式のため、
+# agent が tmux 外に居ると復帰できない。起動時点で pane を持たせておく。
+# Linux 側の agent は role-boot が pane 内で起こすので、この包みは要らない。
+#
+# 関数なので対話シェルからの起動だけに効く。script や絶対パス経由の起動は
+# 素通りするので、既存の自動起動経路 (role-boot、restart worker 等) は変わらない。
+#
+# 注意: 既存 tmux server があると、新しい session はその server の環境を継ぐ。
+# 起動するバイナリ自体は下で絶対パスに解決してから渡すため PATH の古さに
+# 影響されないが、子プロセスが見る環境は server 側のものになる。
+if [[ $(uname) == 'Darwin' ]]; then
+  _run-in-tmux() {
+    local bin=${commands[$1]}
+    [[ -n $bin ]] || { print -u2 "$1: command not found"; return 127 }
+    shift
+    if [[ -z $TMUX ]] && (( $+commands[tmux] )); then
+      # 起動時の argv を session 環境に残す。handoff の respawn はこれを使う。
+      # 走っているプロセスの argv は client 自身が足す --resume を含んでおり、
+      # そのまま復元すると捨てたはずの文脈を読み直してしまう。
+      local -a launch_argv=("$bin" "$@")
+      tmux new-session -c "$PWD" -e "AGENT_LAUNCH_ARGV=${(j: :)${(@q)launch_argv}}" -- "$bin" "$@"
+    else
+      "$bin" "$@"
+    fi
+  }
+
+  claude() { _run-in-tmux claude "$@" }
+  codex()  { _run-in-tmux codex "$@" }
+fi
