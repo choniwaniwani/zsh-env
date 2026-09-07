@@ -223,12 +223,11 @@ fi
 #
 
 # Auto set the tab and window titles.
-zstyle ':prezto:module:terminal' auto-title 'yes'
+zstyle ':prezto:module:terminal' auto-title 'always'
 
-# Set the window title format.
-# zstyle ':prezto:module:terminal:window-title' format '%n@%m: %s'
-
-# Set the tab title format. タブは常にマシン名 (tmux 内は tmux の set-titles が担う)
+# Set the window / tab title format.
+# タブは常にマシン名。tmux 内では OSC 2 (window title) が pane title になり、iTerm2 の tmux 連携はそれをタブ名にする
+zstyle ':prezto:module:terminal:window-title' format '%m'
 zstyle ':prezto:module:terminal:tab-title' format '%m'
 
 # Set the terminal multiplexer title format.

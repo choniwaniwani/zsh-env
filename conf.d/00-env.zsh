@@ -22,6 +22,12 @@ export PATH="$PYENV_ROOT/bin:$PATH"
 # ツールのデフォルト
 export FZF_DEFAULT_OPTS='--height 40% --reverse --border'
 export POWERLEVEL9K_DISABLE_CONFIGURATION_WIZARD=true
+# Claude Code は起動中ターミナルのタイトル (tmux では pane title) を会話の要約に書き換える。
+# タブ名は常にマシン名にしたいので止める (prezto の terminal module がマシン名を書く)
+export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1
+# Claude Code は tmux の passthrough でターミナルのタブ名を直接書き換える。
+# タブ名は常にマシン名にしたいので (prezto の tab-title / tmux の set-titles)、これを止める
+export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1
 
 # Debian/Ubuntu の 'bat' パッケージは 'batcat' という名前のバイナリを入れる。
 # ~/.local/bin に 'bat' という名前の symlink を作って、サブプロセス
