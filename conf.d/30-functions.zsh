@@ -42,6 +42,13 @@ fzf-cdr() {
   zle clear-screen
 }
 
+# iTerm2 は ⌘C / ⌘X / ⌃⇧A を ESC c / ESC x / ESC a で送る (micro のコピー・
+# 切り取り・全選択用)。zsh 標準の割当 (capitalize-word / execute-named-cmd /
+# accept-and-hold) が暴発しないよう、region があるときだけ働く widget で受ける。
+copy-active-region() { (( REGION_ACTIVE )) && zle copy-region-as-kill; REGION_ACTIVE=0 }
+cut-active-region() { (( REGION_ACTIVE )) && zle kill-region }
+zle-noop() { : }
+
 # ssh ラッパー: 接続前後で iTerm のプロファイルを切り替える
 ssh() {
   echo -e "\033]50;SetProfile=$1\a"

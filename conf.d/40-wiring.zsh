@@ -7,6 +7,12 @@ zle -N fzf-select-history
 bindkey '^r' fzf-select-history
 zle -N fzf-cdr
 bindkey '^q' fzf-cdr
+zle -N copy-active-region
+bindkey '^[c' copy-active-region
+zle -N cut-active-region
+bindkey '^[x' cut-active-region
+zle -N zle-noop
+bindkey '^[a' zle-noop
 
 # cdr: 最近 cd した directory を記録
 if [[ -n $(echo ${^fpath}/chpwd_recent_dirs(N)) && -n $(echo ${^fpath}/cdr(N)) ]]; then
