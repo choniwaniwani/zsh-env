@@ -12,3 +12,6 @@ Thumbs.db
 
 # History fragments accidentally landed here
 .zsh_history
+
+# Agent / monitor state (machine-local)
+.team/
