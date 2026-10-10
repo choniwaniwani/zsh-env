@@ -2,13 +2,13 @@
 #
 # zsh-env editor wrapper:
 # 外部ターミナル (iTerm2, Alacritty, WezTerm 等) からも VSCode を呼べるように
-# する。VSCode の統合ターミナルは VSCODE_IPC_HOOK_CLI を自動設定するが、
-# 外部ターミナルには引き継がれないので、起動済み VSCode の IPC socket を
-# 実行のたびに探索して接続する。
+# する。ローカルでは PATH 上の 'code' を使う。Remote CLI の接続に必要な
+# VSCODE_IPC_HOOK_CLI は VSCode の統合ターミナルで自動設定されるが、外部
+# ターミナルには引き継がれないので、有効な設定がなければ IPC socket を探索する。
 #
 # 動作:
-#   1. 起動中 VSCode の IPC socket を OS 別に複数候補から探索
-#   2. Remote CLI (~/.vscode-server/.../code) または local 'code' を選択
+#   1. Remote CLI 用の IPC socket を環境変数または OS 別の複数候補から取得
+#   2. 有効な socket があれば Remote CLI を優先し、なければ local 'code' を選択
 #   3. VSCode が利用可能なら --wait で開いて、エディタを閉じるまで block
 #   4. VSCode が無ければ fallback ($FALLBACK_EDITOR or nano)
 #
@@ -40,19 +40,28 @@ find_vscode_socket() {
 # VSCode CLI の実行ファイルを探す。Remote SSH 接続先側か、ローカル PATH 上の 'code'。
 find_vscode_cli() {
   local remote_cli
-  remote_cli=$(ls -td "$HOME/.vscode-server/cli/servers/"*/server/bin/remote-cli/code 2>/dev/null | head -1)
-  if [[ -n "$remote_cli" && -x "$remote_cli" ]]; then
-    echo "$remote_cli"
-    return 0
+  if [[ -S "${VSCODE_IPC_HOOK_CLI:-}" ]]; then
+    remote_cli=$(ls -td "$HOME/.vscode-server/cli/servers/"*/server/bin/remote-cli/code 2>/dev/null | head -1)
+    if [[ -n "$remote_cli" && -x "$remote_cli" ]]; then
+      echo "$remote_cli"
+      return 0
+    fi
   fi
-  command -v code 2>/dev/null
+  local cli
+  cli=$(command -v code 2>/dev/null) || return 1
+  if [[ "$cli" == */remote-cli/code && ! -S "${VSCODE_IPC_HOOK_CLI:-}" ]]; then
+    return 1
+  fi
+  echo "$cli"
 }
 
-VSCODE_IPC_HOOK_CLI=$(find_vscode_socket || true)
+if [[ ! -S "${VSCODE_IPC_HOOK_CLI:-}" ]]; then
+  VSCODE_IPC_HOOK_CLI=$(find_vscode_socket || true)
+fi
 export VSCODE_IPC_HOOK_CLI
 vscode_cli=$(find_vscode_cli || true)
 
-if [[ -S "${VSCODE_IPC_HOOK_CLI:-}" && -n "$vscode_cli" ]]; then
+if [[ -n "$vscode_cli" ]]; then
   if [[ $# -eq 0 ]]; then
     echo "VSCode 利用時はファイルを指定してください: editor <ファイル名>" >&2
     exit 1

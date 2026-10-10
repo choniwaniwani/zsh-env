@@ -94,10 +94,11 @@ zsh-env/
 
 | 状態 | `editor file` | `editor`（引数なし） |
 |---|---|---|
-| VSCode 起動中 (Remote SSH 接続中含む) | VSCode で開いて閉じるまで block | ガイドメッセージを出して exit |
-| VSCode 未起動 | nano (なければ vim → vi) で開く | 同左 |
+| ローカルの `code` が利用可能 | VSCode で開いて閉じるまで block（未起動なら起動） | ガイドメッセージを出して exit |
+| Remote CLI と有効な IPC socket が利用可能 | 接続先の VSCode で開いて閉じるまで block | ガイドメッセージを出して exit |
+| 利用可能な VSCode CLI がない | nano (なければ vim → vi) で開く | 同左 |
 
-VSCode 起動中かどうかは IPC socket の有無で判定する。`/tmp/`、`/run/user/$UID/`、`$XDG_RUNTIME_DIR`、`$TMPDIR` を順に探索するので Linux/macOS 両対応。
+Remote CLI には有効な IPC socket が必要で、利用できる場合はローカルの `code` より優先する。環境変数 `VSCODE_IPC_HOOK_CLI` に有効な socket があれば使い、なければ `$XDG_RUNTIME_DIR`、`$TMPDIR`、`/run/user/$UID/`、`/tmp/` を順に探索する。ローカルの `code` にはこの socket を要求しない。
 
 fallback editor を変えたい場合は `~/.zshrc.local` 等で `export FALLBACK_EDITOR=vim` のように上書き可能。
 
